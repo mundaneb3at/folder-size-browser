@@ -22,6 +22,11 @@
     1-9             jump the highlight to that row
     B               back (previous folder visited)
     R re-scan this folder    O open in Explorer    Esc / Q quit
+
+  Sizes are SAVED between runs to %LOCALAPPDATA%\FolderSizeBrowser\sizecache.json,
+  so re-opening the tool is instant for anything already scanned. A saved size is
+  reused for up to 14 days, then re-scanned automatically. Press R to refresh a
+  folder now, or launch with -Fresh to ignore the cache and scan from scratch.
 #>
 
 param(
@@ -29,11 +34,20 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$Path = "C:\",
     # Run the built-in logic self-check and exit (no UI). Used to verify edits.
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    # Ignore the saved cache and scan everything from scratch.
+    [switch]$Fresh
 )
 
-# Size cache: folder full path -> bytes. Makes Back / re-visits instant.
-$sizeCache = @{}
+# Size cache: folder full path -> bytes. Makes Back / re-visits instant, and is
+# SAVED to disk so re-opening the tool does not re-scan everything.
+$sizeCache = @{}            # folder path -> bytes
+$sizeWhen  = @{}            # folder path -> when it was measured (for staleness)
+
+# Persistent cache file + how long (days) a saved size may be reused before re-scan.
+$CacheMaxAgeDays = 14
+$cacheDir  = Join-Path $env:LOCALAPPDATA 'FolderSizeBrowser'
+$cacheFile = Join-Path $cacheDir 'sizecache.json'
 
 # Remember where we came from, for [B]ack.
 $history = New-Object 'System.Collections.Generic.Stack[string]'
@@ -69,6 +83,7 @@ function Get-FolderSize {
     }
 
     $sizeCache[$FolderPath] = $bytes
+    $sizeWhen[$FolderPath]  = Get-Date     # stamp so we can age it out across runs
     return $bytes
 }
 
@@ -132,6 +147,59 @@ function Resolve-Key {
 }
 
 # ---------------------------------------------------------------------------
+# Persistent size cache - load saved folder sizes on startup, write them on the
+# way out, so the slow first scan is not repeated every time the tool opens.
+# ---------------------------------------------------------------------------
+
+# True if a size measured at $At is still young enough to reuse.
+function Test-EntryFresh {
+    param([datetime]$At, [datetime]$Now, [int]$MaxAgeDays)
+    return ($Now - $At).TotalDays -lt $MaxAgeDays
+}
+
+# Load saved sizes, dropping anything stale or whose folder no longer exists.
+# Best-effort: a missing or corrupt file just means we start empty. Returns the
+# number of entries restored.
+function Import-Cache {
+    if (-not (Test-Path -LiteralPath $cacheFile)) { return 0 }
+    $loaded = 0
+    try {
+        $now  = Get-Date
+        $data = Get-Content -LiteralPath $cacheFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        foreach ($e in @($data)) {
+            if (-not $e.Path) { continue }
+            $at = [datetime]$e.At
+            if (-not (Test-EntryFresh $at $now $CacheMaxAgeDays)) { continue }   # too old
+            if (-not (Test-Path -LiteralPath $e.Path)) { continue }              # folder gone
+            $sizeCache[[string]$e.Path] = [int64]$e.Bytes
+            $sizeWhen[[string]$e.Path]  = $at
+            $loaded++
+        }
+    } catch { return 0 }
+    return $loaded
+}
+
+# Write the whole cache to disk as UTF-8 JSON.
+# ponytail: rewrites the entire file each save - fine for a personal cache of a
+# few thousand folders; switch to incremental/SQLite only if it ever gets big.
+function Save-Cache {
+    try {
+        if (-not (Test-Path -LiteralPath $cacheDir)) {
+            New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+        }
+        $rows = foreach ($k in $sizeCache.Keys) {
+            [PSCustomObject]@{
+                Path  = $k
+                Bytes = $sizeCache[$k]
+                At    = (&{ if ($sizeWhen.ContainsKey($k)) { $sizeWhen[$k] } else { Get-Date } }).ToString('o')
+            }
+        }
+        $json = @($rows) | ConvertTo-Json -Depth 3
+        [System.IO.File]::WriteAllText($cacheFile, $json, [System.Text.Encoding]::UTF8)
+    } catch { }   # caching is best-effort; never let a save error break the UI
+}
+
+# ---------------------------------------------------------------------------
 # Built-in self-check for the key mapping (the one piece of real logic).
 #   Run: powershell -ExecutionPolicy Bypass -File FindBigFiles.ps1 -SelfTest
 # ---------------------------------------------------------------------------
@@ -162,10 +230,26 @@ if ($SelfTest) {
     Check "unknown keeps index"       ((Resolve-Key (Key 'Z' 'z') 5 2).Action -eq 'none' -and (Resolve-Key (Key 'Z' 'z') 5 2).Index -eq 2)
     Check "Down on empty stays 0"     ((Resolve-Key (Key 'DownArrow' ([char]0)) 0 0).Index -eq 0)
 
+    # --- persistent cache: freshness window + a save/load round-trip ---
+    $now = Get-Date
+    Check "fresh entry kept"          (Test-EntryFresh $now.AddDays(-1)  $now 14)
+    Check "stale entry dropped"       (-not (Test-EntryFresh $now.AddDays(-30) $now 14))
+    $script:cacheDir  = $env:TEMP
+    $script:cacheFile = Join-Path $env:TEMP ("fsb_selftest_{0}.json" -f ([guid]::NewGuid().ToString('N').Substring(0,6)))
+    $script:sizeCache = @{ 'C:\' = [int64]123; $env:TEMP = [int64]456 }
+    $script:sizeWhen  = @{ 'C:\' = $now;        $env:TEMP = $now }
+    Save-Cache
+    $script:sizeCache = @{}; $script:sizeWhen = @{}
+    $restored = Import-Cache
+    Check "round-trip restored 2"     ($restored -eq 2 -and $sizeCache['C:\'] -eq 123)
+
     Write-Host ""
     if ($script:fails -eq 0) { Write-Host "ALL PASS" -ForegroundColor Green; exit 0 }
     else { Write-Host "$($script:fails) FAILED" -ForegroundColor Red; exit 1 }
 }
+
+# Restore saved sizes so a re-open is instant for already-scanned folders.
+if (-not $Fresh) { [void](Import-Cache) }
 
 while ($true) {
     Clear-Host
@@ -190,6 +274,7 @@ while ($true) {
     $fileCount = [int]($fileAgg.Count)
 
     $folderInfo = @()
+    $uncached = @()
     if ($dirs) {
         # Only show the scanning banner/progress for folders we haven't sized yet,
         # so moving the highlight around (everything cached) stays flicker-free.
@@ -212,6 +297,7 @@ while ($true) {
             }
         }
         Write-Progress -Activity "Sizing folders" -Completed
+        if ($uncached.Count -gt 0) { Save-Cache }   # persist the freshly-measured sizes
     }
 
     # Totals for this level.
@@ -266,6 +352,11 @@ while ($true) {
                 Write-Host $text
             }
         }
+    }
+
+    # Tell the user when they're looking at saved (possibly stale) sizes, not a fresh scan.
+    if ($uncached.Count -eq 0 -and $folderInfo.Count -gt 0) {
+        Write-Host " (saved sizes from an earlier scan - press R to refresh this folder)" -ForegroundColor DarkGray
     }
 
     Write-Host ""

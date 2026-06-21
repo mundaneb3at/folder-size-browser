@@ -30,6 +30,9 @@ powershell -ExecutionPolicy Bypass -File "<path>\FindBigFiles.ps1"
 
 # Open somewhere specific
 powershell -ExecutionPolicy Bypass -File "<path>\FindBigFiles.ps1" -Path "D:\"
+
+# Ignore the saved cache and scan everything from scratch
+powershell -ExecutionPolicy Bypass -File "<path>\FindBigFiles.ps1" -Fresh
 ```
 
 ## Controls
@@ -49,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File "<path>\FindBigFiles.ps1" -Path "D:\"
 
 - **robocopy in list-only mode does the recursive byte-summing**, NOT `Get-ChildItem -Recurse`. `robocopy /L` walks the tree without copying anything, is far faster on large trees, and reports an exact byte total that the script parses from the summary line.
 - **`/XJ` skips junctions and symlinks** — no double-counting, no infinite loops. (Plain `Get-ChildItem -Recurse` follows junctions, which is why a naive scan reported `AppData` as 0 and inflated other folders.)
-- **Size cache** — a hashtable keyed by folder path. Folders already measured return instantly on `Back` / re-visit; `R` drops the current folder's cached entries to force a fresh scan.
+- **Size cache** — a hashtable keyed by folder path, **persisted to `%LOCALAPPDATA%\FolderSizeBrowser\sizecache.json`** so re-opening the tool does not repeat the slow first scan. Folders already measured return instantly on `Back` / re-visit; on load, entries older than 14 days (or whose folder no longer exists) are dropped and re-scanned. `R` drops the current folder's cached entries to force a fresh scan; `-Fresh` ignores the saved cache entirely. Writes are best-effort (a corrupt/missing file just starts empty).
 - **Progress bar** — `Write-Progress` shows which sub-folder is being sized, so a big first scan of `C:\` does not look frozen.
 
 ## File inventory

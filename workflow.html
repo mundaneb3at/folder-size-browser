@@ -132,8 +132,8 @@
     </div>
     <div class="hook">
       <div class="name">size cache</div>
-      <div class="matcher">instant re-visits</div>
-      <div class="fires">Measured folders are remembered, so Back and re-entry are instant. Press R to force a fresh re-scan of the current folder.</div>
+      <div class="matcher">instant re-visits &amp; re-opens</div>
+      <div class="fires">Measured folders are remembered <strong>and saved to disk</strong>, so Back, re-entry, and even re-opening the app days later are instant. Saved sizes refresh after ~2 weeks; press R to re-scan now, or launch with <code>-Fresh</code> to ignore the cache.</div>
     </div>
   </div>
 
@@ -177,7 +177,7 @@
   <h2>Troubleshooting</h2>
   <section class="card">
     <h3 style="margin-top:0">First scan of C:\ feels slow</h3>
-    <p style="color:var(--fg-2);font-size:13px">Sizing huge system folders like <code>C:\Windows</code> takes about a minute. The progress bar shows which folder it's on. Every folder is cached afterward, so navigating Back is instant.</p>
+    <p style="color:var(--fg-2);font-size:13px">Sizing huge system folders like <code>C:\Windows</code> takes about a minute. The progress bar shows which folder it's on. Every folder is cached afterward <strong>and saved to disk</strong>, so navigating Back — and re-opening the app later — is instant.</p>
 
     <h3>C:\Windows looks too big</h3>
     <p style="color:var(--fg-2);font-size:13px">Its <code>WinSxS</code> store uses hard-links that get counted per-link — every disk-usage tool shows this. It doesn't affect your personal folders.</p>

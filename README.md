@@ -44,6 +44,16 @@ Every key acts the moment you press it; you never hit Enter to "submit".
 The first scan of your whole C: drive takes about a minute — a progress bar means
 it's working, not frozen. After that, moving around is instant.
 
+Those sizes are **saved between runs**, so the next time you open it everything you
+already scanned shows up instantly — no waiting for the big scan again. Saved sizes
+are reused for up to two weeks, then re-checked automatically. Press `R` to refresh a
+folder sooner (e.g. right after you delete something), or, for a full fresh scan, run
+it from a terminal with `-Fresh`:
+
+```
+powershell -ExecutionPolicy Bypass -File ".\FindBigFiles.ps1" -Fresh
+```
+
 ## Controls
 
 All single keystrokes — no Enter needed.
