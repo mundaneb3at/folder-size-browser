@@ -82,7 +82,7 @@ while ($true) {
     if (-not (Test-Path -LiteralPath $Path)) {
         Write-Host "Path no longer exists: $Path" -ForegroundColor Red
         $Path = "C:\"
-        Start-Sleep -Seconds 1.5
+        Start-Sleep -Milliseconds 1500
         continue
     }
 

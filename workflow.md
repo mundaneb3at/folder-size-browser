@@ -69,7 +69,9 @@ folder-size-browser/
 - **Don't swap robocopy back to `Get-ChildItem -Recurse` for sizing.** It is slower and follows junctions (double-count / infinite-loop risk). Avoiding that is the whole point of the robocopy engine.
 - **The first scan of a huge root is not instant.** Sizing `C:\Windows` and friends takes about a minute; the progress bar proves it is working. Sizes are cached afterward, so navigating back is snappy.
 
-## Extension points
+## Possible extensions (ideas, not built)
+
+These are not implemented — they are notes for anyone who wants to extend the tool.
 
 - **Sort toggle** — add an `S` key to flip between size-descending and name order.
 - **Min-size filter** — hide folders under a threshold (e.g. 100 MB) to cut clutter at the root.

@@ -142,18 +142,20 @@ Index Size        %   Chart       Name
   <h2>Run it</h2>
   <ol class="steps">
     <li>
-      <h3>Open at the C: drive (default)</h3>
-      <p style="color:var(--fg-2)">No arguments needed — it starts at <code>C:\</code>.</p>
-      <pre><code>powershell -ExecutionPolicy Bypass -File "C:\Users\bardi\Desktop\main\projects\ai_code_projects\folder-size-browser\FindBigFiles.ps1"</code></pre>
+      <h3>Double-click <code>Run Folder Size Browser.cmd</code></h3>
+      <p style="color:var(--fg-2)">That's the whole thing — it opens at <code>C:\</code> and starts listing folders. No PowerShell knowledge needed, nothing to install.</p>
+      <div class="warn" style="margin-top:10px"><strong>First time only:</strong> Windows SmartScreen may say "Windows protected your PC." Click <strong>More info → Run anyway</strong>. It's a plain text script — open it in Notepad to see exactly what it does. (It only reads folder sizes; it can't change or delete your files.)</div>
     </li>
     <li>
-      <h3>Or open somewhere specific</h3>
-      <p style="color:var(--fg-2)">Pass any folder or drive with <code>-Path</code>.</p>
-      <pre><code>... \FindBigFiles.ps1 -Path "D:\"</code></pre>
+      <h3>Prefer the command line? (optional)</h3>
+      <p style="color:var(--fg-2)">From the folder where you unzipped it:</p>
+      <pre><code>powershell -ExecutionPolicy Bypass -File ".\FindBigFiles.ps1"</code></pre>
+      <p style="color:var(--fg-2)">Open somewhere specific with <code>-Path</code>:</p>
+      <pre><code>powershell -ExecutionPolicy Bypass -File ".\FindBigFiles.ps1" -Path "D:\"</code></pre>
     </li>
     <li>
       <h3>Drill down to the fat</h3>
-      <p style="color:var(--fg-2)">Type a folder's <strong>number</strong> to open it; you're now inside it seeing its sub-folders and sizes. Keep going until you find what's eating space.</p>
+      <p style="color:var(--fg-2)">Type a folder's <strong>number</strong> to open it; you're now inside it seeing its sub-folders and sizes. Keep going until you find what's eating space — then press <code>O</code> to open it in File Explorer and delete what you don't need.</p>
     </li>
   </ol>
 
@@ -191,7 +193,7 @@ Index Size        %   Chart       Name
     AI-readable twin: <a href="./workflow.md"><code>workflow.md</code></a>. Same content, optimized for being dropped into a memory system or pasted into a chat. Pattern borrowed from the sibling <code>phone-ping</code> project: any non-trivial tool ships both an AI <code>.md</code> and a human <code>.html</code>.
   </section>
 
-  <footer>Open-source · public domain · last updated 2026-05-29</footer>
+  <footer>Open-source · public domain · last updated 2026-06-21</footer>
 </div>
 </body>
 </html>
