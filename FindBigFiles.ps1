@@ -4,9 +4,9 @@
   An interactive terminal "file explorer" for disk usage. You start at a
   root (default C:\), see every sub-folder with its TOTAL size (everything
   inside it, recursively), sorted biggest-first with a small bar chart.
-  Move the highlight with the arrow keys and press Enter to drill into a
-  folder; the same view appears one level deeper. Walk the drive this way
-  to hunt down what eats space.
+  Type a folder's number and press Enter to drill into it; the same view
+  appears one level deeper. Walk the drive this way to hunt down what eats
+  space.
 
   WHY robocopy for sizing:
     Summing a big tree with Get-ChildItem -Recurse is slow and chokes on
@@ -15,13 +15,11 @@
     faster, skips junctions with /XJ (no double-counting, no infinite
     loops), and prints an exact byte total we parse out.
 
-  Controls (one keystroke each - NO Enter needed):
-    Up / Down       move the highlight
-    Enter / Right   open the highlighted folder (drill in)
-    Left / Backspace  up one level (to parent)
-    1-9             jump the highlight to that row
-    B               back (previous folder visited)
-    R re-scan this folder    O open in Explorer    Esc / Q quit
+  Controls (type the input, then press Enter):
+    1, 2, 3 ...  open that folder (drill in)
+    U            up one level (to parent)
+    B            back (previous folder visited)
+    R re-scan this folder    O open in Explorer    Q quit
 
   Sizes are SAVED between runs to %LOCALAPPDATA%\FolderSizeBrowser\sizecache.json,
   so re-opening the tool is instant for anything already scanned. A saved size is
@@ -51,13 +49,6 @@ $cacheFile = Join-Path $cacheDir 'sizecache.json'
 
 # Remember where we came from, for [B]ack.
 $history = New-Object 'System.Collections.Generic.Stack[string]'
-
-# Which row is highlighted (0-based). Persists across redraws.
-$selectedIndex = 0
-
-# When we go up/back, remember the folder we left so the parent view can
-# re-highlight it ("you came from here") instead of jumping to the top.
-$comeFrom = $null
 
 # ---------------------------------------------------------------------------
 # Get-FolderSize - total bytes inside a folder (recursive), via robocopy /L.
@@ -108,42 +99,31 @@ function Get-Bar {
 }
 
 # ---------------------------------------------------------------------------
-# Resolve-Key - PURE input mapping. Given the key the user pressed plus the
-#   current row count and highlighted index, decide the next index and which
-#   ACTION the loop should take. Side-effect-free on purpose, so it can be
-#   unit-tested headless (-SelfTest); the real [Console]::ReadKey lives below.
-#   $Key needs two members: .Key (ConsoleKey name) and .KeyChar (the char).
-#   Returns @{ Action = 'move|open|up|back|rescan|explorer|quit|none'; Index }
+# Resolve-Choice - PURE input mapping for the typed line. Given what the user
+#   typed plus the number of folders, decide what to do. Side-effect-free so it
+#   can be unit-tested headless (-SelfTest).
+#   Returns @{ Action = 'open|up|back|rescan|explorer|quit|none|bad'; Index }
+#   where Index (for 'open') is the 1-based folder number the user picked.
 # ---------------------------------------------------------------------------
-function Resolve-Key {
-    param($Key, [int]$Count, [int]$Index)
+function Resolve-Choice {
+    param([string]$Text, [int]$Count)
 
-    $last = [Math]::Max(0, $Count - 1)
+    $t = "$Text".Trim()
+    if ($t -eq '') { return @{ Action = 'none'; Index = 0 } }
 
-    switch ([string]$Key.Key) {
-        'UpArrow'    { return @{ Action = 'move'; Index = [Math]::Max(0, $Index - 1) } }
-        'DownArrow'  { return @{ Action = 'move'; Index = [Math]::Min($last, $Index + 1) } }
-        'Enter'      { return @{ Action = 'open'; Index = $Index } }
-        'RightArrow' { return @{ Action = 'open'; Index = $Index } }
-        'LeftArrow'  { return @{ Action = 'up';   Index = $Index } }
-        'Backspace'  { return @{ Action = 'up';   Index = $Index } }
-        'Escape'     { return @{ Action = 'quit'; Index = $Index } }
+    if ($t -match '^\d+$') {
+        $n = [int]$t
+        if ($n -ge 1 -and $n -le $Count) { return @{ Action = 'open'; Index = $n } }
+        return @{ Action = 'bad'; Index = 0 }      # number with no matching folder
     }
-
-    # Letters / digits come through KeyChar (the .Key name varies: D3, NumPad3...).
-    $c = [string]$Key.KeyChar
-    if ($c -match '^[0-9]$') {
-        $d = [int]$c
-        if ($d -ge 1 -and $d -le $Count) { return @{ Action = 'move'; Index = $d - 1 } }
-        return @{ Action = 'none'; Index = $Index }
+    switch -Regex ($t) {
+        '^[Uu]$' { return @{ Action = 'up';       Index = 0 } }
+        '^[Bb]$' { return @{ Action = 'back';     Index = 0 } }
+        '^[Rr]$' { return @{ Action = 'rescan';   Index = 0 } }
+        '^[Oo]$' { return @{ Action = 'explorer'; Index = 0 } }
+        '^[Qq]$' { return @{ Action = 'quit';     Index = 0 } }
     }
-    switch -Regex ($c) {
-        '^[Qq]$'   { return @{ Action = 'quit';     Index = $Index } }
-        '^[Bb]$'   { return @{ Action = 'back';     Index = $Index } }
-        '^[Rr]$'   { return @{ Action = 'rescan';   Index = $Index } }
-        '^[Oo]$'   { return @{ Action = 'explorer'; Index = $Index } }
-    }
-    return @{ Action = 'none'; Index = $Index }
+    return @{ Action = 'bad'; Index = 0 }
 }
 
 # ---------------------------------------------------------------------------
@@ -200,7 +180,7 @@ function Save-Cache {
 }
 
 # ---------------------------------------------------------------------------
-# Built-in self-check for the key mapping (the one piece of real logic).
+# Built-in self-check for the input logic (the one piece of real logic).
 #   Run: powershell -ExecutionPolicy Bypass -File FindBigFiles.ps1 -SelfTest
 # ---------------------------------------------------------------------------
 if ($SelfTest) {
@@ -209,31 +189,24 @@ if ($SelfTest) {
         if ($ok) { Write-Host "  PASS  $name" -ForegroundColor Green }
         else     { Write-Host "  FAIL  $name" -ForegroundColor Red; $script:fails++ }
     }
-    # Fake a keystroke: only .Key (name) and .KeyChar are read by Resolve-Key.
-    function Key($name, $char) { [PSCustomObject]@{ Key = $name; KeyChar = $char } }
 
-    Check "Down 0->1"                 ((Resolve-Key (Key 'DownArrow' ([char]0)) 5 0).Index -eq 1)
-    Check "Down clamps at last"       ((Resolve-Key (Key 'DownArrow' ([char]0)) 5 4).Index -eq 4)
-    Check "Up clamps at 0"            ((Resolve-Key (Key 'UpArrow'   ([char]0)) 5 0).Index -eq 0)
-    Check "Enter = open current"      ((Resolve-Key (Key 'Enter'  ([char]13)) 5 2).Action -eq 'open')
-    Check "Right = open"              ((Resolve-Key (Key 'RightArrow' ([char]0)) 5 2).Action -eq 'open')
-    Check "Left = up"                 ((Resolve-Key (Key 'LeftArrow'  ([char]0)) 5 2).Action -eq 'up')
-    Check "Backspace = up"            ((Resolve-Key (Key 'Backspace'  ([char]8)) 5 2).Action -eq 'up')
-    Check "Esc = quit"                ((Resolve-Key (Key 'Escape' ([char]27)) 5 2).Action -eq 'quit')
-    Check "q = quit"                  ((Resolve-Key (Key 'Q' 'q') 5 2).Action -eq 'quit')
-    Check "digit 3 jumps to row 3"    ((Resolve-Key (Key 'D3' '3') 5 0).Index -eq 2 -and (Resolve-Key (Key 'D3' '3') 5 0).Action -eq 'move')
-    Check "digit out of range = none" ((Resolve-Key (Key 'D9' '9') 5 1).Action -eq 'none')
-    Check "digit 0 = none"            ((Resolve-Key (Key 'D0' '0') 5 1).Action -eq 'none')
-    Check "b = back"                  ((Resolve-Key (Key 'B' 'b') 5 0).Action -eq 'back')
-    Check "r = rescan"                ((Resolve-Key (Key 'R' 'r') 5 0).Action -eq 'rescan')
-    Check "o = explorer"              ((Resolve-Key (Key 'O' 'o') 5 0).Action -eq 'explorer')
-    Check "unknown keeps index"       ((Resolve-Key (Key 'Z' 'z') 5 2).Action -eq 'none' -and (Resolve-Key (Key 'Z' 'z') 5 2).Index -eq 2)
-    Check "Down on empty stays 0"     ((Resolve-Key (Key 'DownArrow' ([char]0)) 0 0).Index -eq 0)
+    Check "empty = none"           ((Resolve-Choice '' 5).Action -eq 'none')
+    Check "3 opens folder 3"       ((Resolve-Choice '3' 5).Action -eq 'open' -and (Resolve-Choice '3' 5).Index -eq 3)
+    Check "whitespace trimmed"     ((Resolve-Choice '  2 ' 5).Action -eq 'open' -and (Resolve-Choice '  2 ' 5).Index -eq 2)
+    Check "12 opens folder 12"     ((Resolve-Choice '12' 28).Action -eq 'open' -and (Resolve-Choice '12' 28).Index -eq 12)
+    Check "9 of 5 = bad"           ((Resolve-Choice '9' 5).Action -eq 'bad')
+    Check "0 = bad"                ((Resolve-Choice '0' 5).Action -eq 'bad')
+    Check "u = up"                 ((Resolve-Choice 'u' 5).Action -eq 'up')
+    Check "B = back"               ((Resolve-Choice 'B' 5).Action -eq 'back')
+    Check "r = rescan"             ((Resolve-Choice 'r' 5).Action -eq 'rescan')
+    Check "O = explorer"           ((Resolve-Choice 'O' 5).Action -eq 'explorer')
+    Check "q = quit"               ((Resolve-Choice 'q' 5).Action -eq 'quit')
+    Check "x = bad"                ((Resolve-Choice 'x' 5).Action -eq 'bad')
 
     # --- persistent cache: freshness window + a save/load round-trip ---
     $now = Get-Date
-    Check "fresh entry kept"          (Test-EntryFresh $now.AddDays(-1)  $now 14)
-    Check "stale entry dropped"       (-not (Test-EntryFresh $now.AddDays(-30) $now 14))
+    Check "fresh entry kept"       (Test-EntryFresh $now.AddDays(-1)  $now 14)
+    Check "stale entry dropped"    (-not (Test-EntryFresh $now.AddDays(-30) $now 14))
     $script:cacheDir  = $env:TEMP
     $script:cacheFile = Join-Path $env:TEMP ("fsb_selftest_{0}.json" -f ([guid]::NewGuid().ToString('N').Substring(0,6)))
     $script:sizeCache = @{ 'C:\' = [int64]123; $env:TEMP = [int64]456 }
@@ -241,7 +214,7 @@ if ($SelfTest) {
     Save-Cache
     $script:sizeCache = @{}; $script:sizeWhen = @{}
     $restored = Import-Cache
-    Check "round-trip restored 2"     ($restored -eq 2 -and $sizeCache['C:\'] -eq 123)
+    Check "round-trip restored 2"  ($restored -eq 2 -and $sizeCache['C:\'] -eq 123)
 
     Write-Host ""
     if ($script:fails -eq 0) { Write-Host "ALL PASS" -ForegroundColor Green; exit 0 }
@@ -277,7 +250,7 @@ while ($true) {
     $uncached = @()
     if ($dirs) {
         # Only show the scanning banner/progress for folders we haven't sized yet,
-        # so moving the highlight around (everything cached) stays flicker-free.
+        # so re-visiting cached folders stays instant and quiet.
         $uncached = @($dirs | Where-Object { -not $sizeCache.ContainsKey($_.FullName) })
         if ($uncached.Count -gt 0) {
             Write-Host " Scanning $($uncached.Count) folder(s)... (first scan of a big folder can take a bit)" -ForegroundColor DarkGray
@@ -312,45 +285,36 @@ while ($true) {
 
     if (-not $folderInfo -or $folderInfo.Count -eq 0) {
         Write-Host " (no sub-folders here)" -ForegroundColor DarkGray
-        $selectedIndex = 0
     }
     else {
-        # Sort biggest-first, then number the rows so the visible index matches the keys.
+        # Sort biggest-first, then number the rows so the printed number = what you type.
         # @() keeps it an array: a 1-element Sort-Object returns a scalar whose .Count
-        # is $null, which would break the clamp/highlight/open guards below.
+        # is $null, which would break the count math below.
         $folderInfo = @($folderInfo | Sort-Object Bytes -Descending)
         $n = 1
         foreach ($row in $folderInfo) { $row.Index = $n; $n++ }
 
-        # If we just came up/back from a child, highlight that child here.
-        if ($comeFrom) {
-            $m = $folderInfo | Where-Object { $_.FullPath -eq $comeFrom } | Select-Object -First 1
-            if ($m) { $selectedIndex = $m.Index - 1 } else { $selectedIndex = 0 }  # gone? top.
-            $comeFrom = $null
-        }
-        # Keep the highlight in range (folder counts change as you navigate).
-        if ($selectedIndex -lt 0) { $selectedIndex = 0 }
-        if ($selectedIndex -gt $folderInfo.Count - 1) { $selectedIndex = $folderInfo.Count - 1 }
+        # Show only as many rows as fit the window, so a long list never scrolls the
+        # biggest folders off the top. Sorted biggest-first, so the top is what matters.
+        # ponytail: static draw-once-per-page (no live cursor); numbers reach any folder.
+        $winH = try { [Console]::WindowHeight } catch { 25 }
+        if ($winH -lt 12) { $winH = 25 }
+        $maxRows = [Math]::Max(5, $winH - 11)   # 11 = header/total/notes/prompt overhead
+        $shown   = @($folderInfo | Select-Object -First $maxRows)
 
-        # Manual table render so the selected row can be highlighted.
-        # ponytail: full Clear-Host + reprint each keypress; sizes are cached so
-        # it stays snappy. Upgrade to partial redraw only if flicker bothers you.
-        $selRow = $selectedIndex + 1
-        Write-Host ("   {0,3}  {1,11}  {2,4}  {3,-10}  {4}" -f '#', 'Size', '%', 'Chart', 'Name') -ForegroundColor DarkGray
-        foreach ($row in $folderInfo) {
+        Write-Host ("  {0,3}  {1,11}  {2,4}  {3,-10}  {4}" -f '#', 'Size', '%', 'Chart', 'Name') -ForegroundColor DarkGray
+        foreach ($row in $shown) {
             # Invariant integer percent 0-100 (no culture-sensitive {N0}).
             $pct  = if ($grandTotal -gt 0) { [Math]::Min(100, [int][Math]::Round(100 * $row.Bytes / $grandTotal)) } else { 0 }
             $size = (Format-Size $row.Bytes).Trim().PadLeft(11)
             $bar  = Get-Bar $row.Bytes $maxBytes
-            # Trim very long names so the highlighted row can't wrap to a second line.
+            # Trim very long names so a row can't wrap to a second line.
             $name = if ($row.Name.Length -gt 50) { $row.Name.Substring(0, 47) + '...' } else { $row.Name }
-            $marker = if ($row.Index -eq $selRow) { '>' } else { ' ' }
-            $text = (" {0} {1,3}  {2}  {3,3}%  {4}  {5}" -f $marker, $row.Index, $size, $pct, $bar, $name)
-            if ($row.Index -eq $selRow) {
-                Write-Host $text -ForegroundColor Black -BackgroundColor Cyan
-            } else {
-                Write-Host $text
-            }
+            Write-Host ("  {0,3}  {1}  {2,3}%  {3}  {4}" -f $row.Index, $size, $pct, $bar, $name)
+        }
+        if ($folderInfo.Count -gt $shown.Count) {
+            $hidden = $folderInfo.Count - $shown.Count
+            Write-Host (" (+{0} smaller folder(s) hidden - type a number to open any)" -f $hidden) -ForegroundColor DarkGray
         }
     }
 
@@ -360,36 +324,23 @@ while ($true) {
     }
 
     Write-Host ""
-    Write-Host " Up/Down select   Enter open   Left/Bksp up   1-9 jump   B back   R re-scan   O explorer   Esc/Q quit" -ForegroundColor Cyan
+    Write-Host " Open #, or  u=up  b=back  r=rescan  o=explorer  q=quit" -ForegroundColor Cyan
+    $choice = Read-Host " >"
 
-    # Read ONE keystroke (no Enter). Needs a real console window; piping input or
-    # running in the ISE has no key reader, so fail with a clear hint instead of
-    # an ugly exception.
-    try {
-        $key = [Console]::ReadKey($true)
-    } catch {
-        Write-Host ""
-        Write-Host " This tool needs a real console window." -ForegroundColor Yellow
-        Write-Host " Double-click 'Run Folder Size Browser.cmd' (don't pipe input or use the ISE)." -ForegroundColor Yellow
-        return
-    }
-
-    $act = Resolve-Key -Key $key -Count $folderInfo.Count -Index $selectedIndex
+    $act = Resolve-Choice -Text $choice -Count $folderInfo.Count
     switch ($act.Action) {
-        'move'     { $selectedIndex = $act.Index }
         'open'     {
-            if ($folderInfo.Count -gt 0) {
-                $sel = $folderInfo | Where-Object { $_.Index -eq ($act.Index + 1) } | Select-Object -First 1
-                if ($sel) { $history.Push($Path); $Path = $sel.FullPath; $selectedIndex = 0 }
-            }
+            $sel = $folderInfo | Where-Object { $_.Index -eq $act.Index } | Select-Object -First 1
+            if ($sel) { $history.Push($Path); $Path = $sel.FullPath }
         }
         'up'       {
             $parent = Split-Path -Parent $Path
-            if ($parent) { $comeFrom = $Path; $history.Push($Path); $Path = $parent }
-            # no parent = already at the top of the drive: ignore
+            if ($parent) { $history.Push($Path); $Path = $parent }
+            else { Write-Host " Already at the top." -ForegroundColor DarkGray; Start-Sleep -Milliseconds 800 }
         }
         'back'     {
-            if ($history.Count -gt 0) { $comeFrom = $Path; $Path = $history.Pop() }
+            if ($history.Count -gt 0) { $Path = $history.Pop() }
+            else { Write-Host " No previous folder." -ForegroundColor DarkGray; Start-Sleep -Milliseconds 800 }
         }
         'rescan'   {
             # Drop cached sizes for THIS folder and its sub-folders, then redraw to
@@ -399,6 +350,7 @@ while ($true) {
         }
         'explorer' { & explorer.exe $Path }
         'quit'     { Write-Progress -Activity 'done' -Completed; return }
-        'none'     { }
+        'bad'      { Write-Host " Type a folder number or u/b/r/o/q." -ForegroundColor DarkGray; Start-Sleep -Milliseconds 800 }
+        'none'     { }   # empty input = just redraw
     }
 }

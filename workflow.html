@@ -99,7 +99,7 @@
       <div class="arrow">→</div>
       <div class="node"><strong>Size</strong>robocopy /L<br><span style="color:var(--fg-3);font-size:11.5px">per sub-folder, cached</span></div>
       <div class="arrow">→</div>
-      <div class="node"><strong>Drill</strong>arrows + Enter<br>to open a folder</div>
+      <div class="node"><strong>Drill</strong>type its number<br>to open a folder</div>
     </div>
   </section>
 
@@ -109,13 +109,15 @@
  Location: C:\
  Total here: 393.0 GB   (7 folders, 2 loose files = 12.0 MB)
 
-     #         Size     %  Chart       Name
- >   1   215.40 GB   55%  <span class="bar">##########</span>  Windows
-     2    90.10 GB   23%  <span class="bar">####......</span>  Program Files
-     3    60.20 GB   15%  <span class="bar">###.......</span>  Users
-     ...
+    #         Size     %  Chart       Name
+    1   215.40 GB   55%  <span class="bar">##########</span>  Windows
+    2    90.10 GB   23%  <span class="bar">####......</span>  Program Files
+    3    60.20 GB   15%  <span class="bar">###.......</span>  Users
+    ...
+ (+12 smaller folder(s) hidden - type a number to open any)
 
- Up/Down select   Enter open   Left/Bksp up   1-9 jump   B back   R re-scan   O explorer   Esc/Q quit</div>
+ Open #, or  u=up  b=back  r=rescan  o=explorer  q=quit
+ &gt; 2</div>
   </section>
 
   <h2>How it works</h2>
@@ -153,23 +155,21 @@
     </li>
     <li>
       <h3>Drill down to the fat</h3>
-      <p style="color:var(--fg-2)">Use the <strong>arrow keys</strong> to move the highlight and press <strong>Enter</strong> to open that folder (or just press its <strong>number</strong>). You're now inside it seeing its sub-folders and sizes; the <code>Left</code> arrow or <code>Backspace</code> goes back up. Keep going until you find what's eating space — then press <code>O</code> to open it in File Explorer and delete what you don't need. Every key acts instantly — no Enter to "submit".</p>
+      <p style="color:var(--fg-2)"><strong>Type a folder's number</strong> and press Enter to open it. You're now inside it seeing its sub-folders and sizes; type <code>u</code> to go back up. Keep going until you find what's eating space — then type <code>o</code> to open it in File Explorer and delete what you don't need. The list shows the biggest folders that fit your window; any smaller ones are summarised on a <code>(+N hidden)</code> line and can still be opened by number.</p>
     </li>
   </ol>
 
   <h2>Controls</h2>
   <section class="card" style="padding:6px 14px">
     <table>
-      <thead><tr><th>Key</th><th>Action</th></tr></thead>
+      <thead><tr><th>Type (then Enter)</th><th>Action</th></tr></thead>
       <tbody>
-        <tr><td class="key">Up / Down</td><td>move the highlight</td></tr>
-        <tr><td class="key">Enter / Right</td><td>open the highlighted folder (drill down)</td></tr>
-        <tr><td class="key">Left / Bksp</td><td>up one level (to parent)</td></tr>
-        <tr><td class="key">1-9</td><td>jump straight to that folder</td></tr>
+        <tr><td class="key">1, 2, 3 …</td><td>open that folder (drill down)</td></tr>
+        <tr><td class="key">U</td><td>up one level (to parent)</td></tr>
         <tr><td class="key">B</td><td>back (previous folder visited)</td></tr>
         <tr><td class="key">R</td><td>re-scan current folder (clears cached sizes)</td></tr>
         <tr><td class="key">O</td><td>open current folder in File Explorer</td></tr>
-        <tr><td class="key">Esc / Q</td><td>quit</td></tr>
+        <tr><td class="key">Q</td><td>quit</td></tr>
       </tbody>
     </table>
   </section>
