@@ -14,19 +14,18 @@ nothing to download but this, no cost.
  Location: C:\
  Total here: 393.0 GB   (7 folders, 2 loose files = 12.0 MB)
 
-Index Size        %   Chart       Name
------ ----        -   -----       ----
-    1 215.40 GB  55   ##########  Windows
-    2  90.10 GB  23   ####......  Program Files
-    3  60.20 GB  15   ###.......  Users
-    ...
+     #         Size     %  Chart       Name
+ >   1   215.40 GB   55%  ##########  Windows
+     2    90.10 GB   23%  ####......  Program Files
+     3    60.20 GB   15%  ###.......  Users
+     ...
 
- [number] open   U up   B back   R re-scan   O explorer   Q quit
- >
+ Up/Down select   Enter open   Left/Bksp up   1-9 jump   B back   R re-scan   O explorer   Esc/Q quit
 ```
 
-Type `2` to open Program Files, see *its* biggest folders, and keep drilling until
-you find the culprit.
+The `>` row is highlighted. **Arrow down** to a folder and press **Enter** to open
+it — you'll see *its* biggest folders. Keep drilling until you find the culprit.
+Every key acts the moment you press it; you never hit Enter to "submit".
 
 ## Get it
 
@@ -47,14 +46,18 @@ it's working, not frozen. After that, moving around is instant.
 
 ## Controls
 
+All single keystrokes — no Enter needed.
+
 | Key | What it does |
 |---|---|
-| *number* | open that folder (drill down) |
-| `U` | up one level |
+| `↑` / `↓` | move the highlight |
+| `Enter` or `→` | open the highlighted folder (drill down) |
+| `←` or `Backspace` | up one level |
+| `1`–`9` | jump straight to that folder |
 | `B` | back (previous folder) |
 | `R` | re-scan this folder |
 | `O` | open this folder in File Explorer (to delete from there) |
-| `Q` | quit |
+| `Esc` or `Q` | quit |
 
 ## Want a visual guide?
 

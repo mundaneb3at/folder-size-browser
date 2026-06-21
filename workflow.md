@@ -18,7 +18,7 @@ A single PowerShell script (`FindBigFiles.ps1`) turns the terminal into a drill-
 
 1. **Opens at a root** — the C: drive by default, or any path via `-Path`.
 2. **Lists every sub-folder with its TOTAL size** (everything inside it, recursively), sorted biggest-first, with a `%`-of-parent column and a small bar chart.
-3. **Drill down** — type a folder's number to open it; the same view appears one level deeper. Walk the whole drive this way to find what is eating space.
+3. **Drill down** — arrow-key the highlight onto a folder and press Enter to open it (or press its number); the same view appears one level deeper. Walk the whole drive this way to find what is eating space. Every key acts on the single keystroke — no Enter needed.
 
 No install and no dependencies beyond what already ships with Windows (PowerShell + robocopy).
 
@@ -36,12 +36,14 @@ powershell -ExecutionPolicy Bypass -File "<path>\FindBigFiles.ps1" -Path "D:\"
 
 | Key | Action |
 |---|---|
-| `number` | open that folder (drill down) |
-| `U` | up one level (to parent) |
+| `Up` / `Down` | move the highlight |
+| `Enter` / `Right` | open the highlighted folder (drill down) |
+| `Left` / `Backspace` | up one level (to parent) |
+| `1`-`9` | jump straight to that folder |
 | `B` | back (previous folder visited) |
 | `R` | re-scan current folder (clears cached sizes) |
 | `O` | open current folder in File Explorer |
-| `Q` | quit |
+| `Esc` / `Q` | quit |
 
 ## Architecture / how sizing works
 
