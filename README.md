@@ -72,7 +72,7 @@ Type your choice, then press **Enter**.
 
 ## Want a visual guide?
 
-Open **`workflow.html`** in any browser for a illustrated walkthrough.
+Open **`workflow.html`** in any browser for an illustrated walkthrough.
 
 ## License
 
