@@ -2,7 +2,9 @@
 
 A tiny **Windows** tool that shows you **what's eating your disk space** — folder by
 folder, biggest first — so you can hunt down the junk and clear it out. No install,
-nothing to download but this, no cost.
+nothing to download but this, no cost. Requires **PowerShell 3.0+** (ships with Windows 8+, and
+Windows 7 with the WMF 3.0 update; uses `ConvertFrom-Json`/`ConvertTo-Json` and
+`Get-ChildItem -File`, both added in 3.0).
 
 > **It never deletes anything itself.** It only *shows you* where the space went.
 > You delete what you want from File Explorer (press `O` to jump straight there).
