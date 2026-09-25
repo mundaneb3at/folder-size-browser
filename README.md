@@ -78,4 +78,4 @@ Open **`workflow.html`** in any browser for an illustrated walkthrough.
 
 ## License
 
-Public domain ([Unlicense](./LICENSE)) — do whatever you want with it.
+Released under the [MIT License](./LICENSE) — credit required via the copyright notice.

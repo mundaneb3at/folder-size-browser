@@ -61,7 +61,7 @@ folder-size-browser/
 ├── workflow.md          # this file (AI-readable)
 ├── workflow.html        # human visual twin
 ├── FindBigFiles.ps1     # the script
-├── LICENSE              # public domain (Unlicense)
+├── LICENSE              # MIT
 └── .gitattributes
 ```
 
